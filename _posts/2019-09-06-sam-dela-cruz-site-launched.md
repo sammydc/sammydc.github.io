@@ -6,28 +6,43 @@ date: 2019-09-06
 
 Well. Finally got around to putting this old website together. Neat thing about it - powered by [Jekyll](http://jekyllrb.com) and I can use Markdown to author my posts. It actually is a lot easier than I thought it was going to be.
 
-```typescript
-import { Component, forwardRef, Input } from '@angular/core';
-import {
-  NG_VALUE_ACCESSOR,
-  NG_VALIDATORS,
-  ControlValueAccessor,
-  FormControl,
-  Validator
-} from '@angular/forms';
+```python
+import logging
+import re
 
-const noop = () => {
-};
+from django.conf import settings
 
-export const CUSTOM_INPUT_CONTROL_VALUE_ACCESSOR: any = {
-  provide: NG_VALUE_ACCESSOR,
-  useExisting: forwardRef(() => InputJsonComponent),
-  multi: true
-};
+from orchestrator.exceptions import AcquireDockerError
+from orchestrator.exceptions import NimbusDockerError
+from orchestrator.models import Docker
+from orchestrator.utils.common import RemoteExecute
 
-export const CUSTOM_INPUT_CONTROL_VALIDATOR: any = {
-  provide: NG_VALIDATORS,
-  useExisting: forwardRef(() => InputJsonComponent),
-  multi: true
-};
+LOG = logging.getLogger(__name__)
+
+
+def acquire_docker_machine(job_id):
+    """
+    Acquire docker machine and increment serving.
+
+    Args:
+        job_id (int): job id
+
+    Returns:
+        Docker orchestrator model object
+
+    Raises:
+        AcquireDockerError: when no docker machine available
+    """
+    docker = Docker.objects.filter(active=True).order_by('serving').first()
+    if docker:
+        docker.serving += 1
+        docker.save(update_fields=['serving'])
+        LOG.info(
+            "Acquired docker %s for job %s" % (docker.name, job_id))
+        return docker
+    else:
+        error_msg = "Acquire docker failed for job %s. " % (job_id) + \
+            "No docker machine available."
+        LOG.error(error_msg)
+        raise AcquireDockerError(error_msg)
 ```
